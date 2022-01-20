@@ -391,16 +391,29 @@ having count(DISTINCT type) = 1
 and count(model)> 1;
 
 -- 41.For each maker who has models at least in one of the tables PC, Laptop, or Printer, determine the maximum price for his products. Output: maker; if there are NULL values among the prices for the products of a given maker, display NULL for this maker, otherwise, the maximum price.
-With RES1
-AS
-(select distinct p.maker,p.model,MAX(pc.price) as m_price
-from product p ,pc
-where p.model = pc.model
-group by p.maker,p.model,pc.price
-)
-SELECT maker,MAX(m_price)
-from RES1
-group by maker;
+
+SELECT maker,
+  CASE 
+    WHEN sum(CASE 
+                WHEN price IS NULL THEN 1 
+                ELSE 0 
+             END) > 0 THEN NULL
+    ELSE max(price) 
+  END AS price
+FROM(SELECT p.maker,pc.price
+FROM product p, pc
+WHERE p.model = pc.model
+UNION ALL
+SELECT p.maker,l.price
+FROM product p, laptop l
+WHERE p.model = l.model
+UNION ALL
+SELECT p.maker,pr.price
+FROM product p, Printer pr
+WHERE p.model = pr.model
+) res
+
+Group by maker;
 
 
 -- 42. Find the names of ships sunk at battles, along with the names of the corresponding battles.
@@ -447,6 +460,38 @@ WHERE battle = 'Guadalcanal'
 
 
 -- 47. Find the countries that have lost all their ships in battles.
+
+WITH boat_count AS 
+(SELECT country, COUNT(*) AS cnt
+FROM 
+(SELECT s.name AS name, 
+c.country AS country
+FROM classes c, ships s 
+WHERE c.class = s.class
+UNION
+SELECT o.ship AS name, c.country
+FROM classes c, outcomes o
+WHERE o.ship = c.class
+) res3
+GROUP BY country)
+
+SELECT res2.country
+FROM
+(SELECT country, COUNT(*) AS sunk_count
+FROM 
+(SELECT s.name, c.country
+FROM classes c, ships s 
+WHERE c.class = s.class
+UNION 
+SELECT o.ship, c.country
+FROM classes c, Outcomes o
+WHERE c.class= o.ship
+) res1,outcomes o
+WHERE o.ship = res1.name and result ='sunk'
+GROUP BY country
+) res2
+,boat_count bct
+WHERE bct.country = res2.country AND bct.cnt = res2.sunk_count
 
 -- 48. Find the ship classes having at least one ship sunk in battles.
 
